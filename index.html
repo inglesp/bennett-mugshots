@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bennett Institute Mugshots</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+  }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #e94560; }
+  #stats {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 2rem;
+    color: #aaa;
+  }
+  #stats span { color: #fff; font-weight: bold; }
+  #card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    max-width: 420px;
+    width: 100%;
+  }
+  #face {
+    width: 250px;
+    height: 250px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    border: 3px solid #0f3460;
+  }
+  #guess-input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    font-size: 1.1rem;
+    border: 2px solid #0f3460;
+    border-radius: 8px;
+    background: #1a1a2e;
+    color: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #guess-input:focus { border-color: #e94560; }
+  #guess-input.wrong {
+    border-color: #e94560;
+    animation: shake 0.4s;
+  }
+  #guess-input.correct {
+    border-color: #4ecca3;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+  #feedback {
+    margin-top: 1rem;
+    font-size: 1rem;
+    min-height: 1.5em;
+  }
+  .wrong-text { color: #e94560; }
+  .correct-text { color: #4ecca3; }
+  #progress {
+    margin-top: 1.5rem;
+    width: 100%;
+    height: 8px;
+    background: #0f3460;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #progress-bar {
+    height: 100%;
+    background: #4ecca3;
+    transition: width 0.3s;
+    width: 0%;
+  }
+  #done {
+    display: none;
+    text-align: center;
+  }
+  #done h2 { color: #4ecca3; font-size: 2rem; margin-bottom: 1rem; }
+  #done p { font-size: 1.2rem; margin-bottom: 0.5rem; }
+  #play-again {
+    margin-top: 1.5rem;
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
+    background: #e94560;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #play-again:hover { background: #c73652; }
+  #mode-select {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  #mode-select p {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    color: #aaa;
+  }
+  .mode-btn {
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
+    border: 2px solid #0f3460;
+    border-radius: 8px;
+    background: #16213e;
+    color: #fff;
+    cursor: pointer;
+    margin: 0 0.5rem;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .mode-btn:hover { border-color: #e94560; background: #1a1a2e; }
+</style>
+</head>
+<body>
+
+<h1>Bennett Institute Mugshots</h1>
+
+<div id="mode-select">
+  <p>Choose difficulty:</p>
+  <button class="mode-btn" data-mode="easy">Easy (first name)</button>
+  <button class="mode-btn" data-mode="hard">Hard (full name)</button>
+</div>
+
+<div id="stats" style="display:none">
+  <div>Time: <span id="timer">0:00</span></div>
+  <div>Score: <span id="score">0</span> / <span id="total">64</span></div>
+</div>
+
+<div id="card" style="display:none">
+  <img id="face" src="" alt="Who is this?">
+  <input type="text" id="guess-input" placeholder="Enter full name..." autocomplete="off">
+  <div id="feedback"></div>
+  <div id="progress"><div id="progress-bar"></div></div>
+</div>
+
+<div id="done">
+  <h2>You got them all!</h2>
+  <p>Time: <span id="final-time"></span></p>
+  <p>Wrong guesses: <span id="wrong-count"></span></p>
+  <button id="play-again">Play Again</button>
+</div>
+
+<script>
+const BASE = "https://www.bennett.ox.ac.uk";
+const people = [
+  {"name": "Ben Goldacre", "image_url": "/about-us/ben-goldacre/ben-goldacre_hu_8f60424a1e3312e6.jpg"},
+  {"name": "Seb Bacon", "image_url": "/about-us/seb-bacon/seb-bacon_hu_38f0e78ffbdc2daf.jpg"},
+  {"name": "Alex Walker", "image_url": "/about-us/alex-walker/alex-walker_hu_50ef90dcac3a89f2.jpg"},
+  {"name": "Alice Wong", "image_url": "/about-us/alice-wong/alice-wong_hu_191c8846db661073.jpg"},
+  {"name": "Amir Mehrkar", "image_url": "/about-us/amir-mehrkar/amir-mehrkar_hu_b7bfdd84462ee9d1.jpg"},
+  {"name": "Andrea Schaffer", "image_url": "/about-us/andrea-schaffer/andrea-schaffer_hu_bcb1b4222e5c2f65.jpg"},
+  {"name": "Andrew Brown", "image_url": "/about-us/andrew-brown/andrew-brown_hu_d4411bcd128422a8.jpg"},
+  {"name": "Arina Tamborska", "image_url": "/about-us/arina-tamborska/arina-tamborska_hu_b07386823af78ba.jpg"},
+  {"name": "Barbora Rider", "image_url": "/about-us/barbora-rider/barbora-rider_hu_4bc023ba89b8f636.jpg"},
+  {"name": "Becky Smith", "image_url": "/about-us/becky-smith/becky-smith_hu_ff978fbb61fb02c0.jpg"},
+  {"name": "Ben Butler-Cole", "image_url": "/about-us/ben-butler-cole/ben-butler-cole_hu_3c613843800fe935.jpg"},
+  {"name": "Brian MacKenna", "image_url": "/about-us/brian-mackenna/brian-mackenna_hu_644110db44df4321.jpg"},
+  {"name": "Caroline Acuda", "image_url": "/about-us/caroline-acuda/caroline-acuda_hu_e98c256f25ac3ef5.jpg"},
+  {"name": "Caroline Walters", "image_url": "/about-us/caroline-walters/caroline-walters_hu_9f74bf15adbe0a40.jpg"},
+  {"name": "Catherine Stables", "image_url": "/about-us/catherine-stables/catherine-stables_hu_dafab8c80a2e1b35.jpg"},
+  {"name": "Chris Wood", "image_url": "/about-us/chris-wood/chris-wood_hu_f56c270813fa4bde.jpg"},
+  {"name": "Colm Andrews", "image_url": "/about-us/colm-andrews/colm-andrews_hu_37a0c20542a85c8f.jpg"},
+  {"name": "Dave Evans", "image_url": "/about-us/dave-evans/dave-evans_hu_22d199d473541077.jpg"},
+  {"name": "Eli Holderness", "image_url": "/about-us/eli-holderness/eli-holderness_hu_cd0ea4593525a17f.jpg"},
+  {"name": "Em Prestige", "image_url": "/about-us/em-prestige/em-prestige_hu_d4bc0a310723d0cc.jpg"},
+  {"name": "Frederica Longfoot", "image_url": "/about-us/frederica-longfoot/frederica-longfoot_hu_7081863cd39f052b.jpg"},
+  {"name": "Giles Turnbull", "image_url": "/about-us/giles-turnbull/giles-turnbull_hu_e14bc46ebaa2ba1e.jpg"},
+  {"name": "Hannah Keogh", "image_url": "/about-us/hannah-keogh/hannah-keogh_hu_6136e7f1ece222bb.jpg"},
+  {"name": "Helen Curtis", "image_url": "/about-us/helen-curtis/helen-curtis_hu_25f483be9b0417a2.jpg"},
+  {"name": "Hilary Winstanly", "image_url": "/about-us/hilary-winstanly/hilary-winstanly_hu_64ed00595867d6b6.jpg"},
+  {"name": "Iain Dillingham", "image_url": "/about-us/iain-dillingham/iain-dillingham_hu_daebb9b2fa2dfb95.jpg"},
+  {"name": "Irene Kyomuhangi", "image_url": "/about-us/irene-kyomuhangi/irene-kyomuhangi_hu_f08cd51da2b6e7a.jpg"},
+  {"name": "Jade Pickering", "image_url": "/about-us/jade-pickering/jade-pickering_hu_df10407228e7c3f2.jpg"},
+  {"name": "Jade Womersley", "image_url": "/about-us/jade-womersley/jade-womersley_hu_b930f446d8dc4096.jpg"},
+  {"name": "Jaidip Gill", "image_url": "/about-us/jaidip-gill/jaidip-gill_hu_f6903ced558e368c.jpg"},
+  {"name": "Jewel Esemuze", "image_url": "/about-us/jewel-esemuze/jewel-esemuze_hu_fd213da00478a77d.jpg"},
+  {"name": "Jon Massey", "image_url": "/about-us/jon-massey/jon-massey_hu_2fb56db4ca58105e.jpg"},
+  {"name": "Juliet Underdown", "image_url": "/about-us/juliet-underdown/juliet-underdown_hu_a33b4b27654b5dae.jpg"},
+  {"name": "Kareem Mohamed", "image_url": "/about-us/kareem-mohamed/kareem-mohamed_hu_5ddf5efe14372c19.jpg"},
+  {"name": "Katie Bickford", "image_url": "/about-us/katie-bickford/katie-bickford_hu_ac4c81ed0a5094df.jpg"},
+  {"name": "Kaylee Poon", "image_url": "/about-us/kaylee-poon/kaylee-poon_hu_49f8ccc030e67e47.jpg"},
+  {"name": "Klaudia Budniak", "image_url": "/about-us/klaudia-budniak/klaudia-budniak_hu_69e81a55bfc5143d.jpg"},
+  {"name": "Liam Hart", "image_url": "/about-us/liam-hart/liam-hart_hu_217090b1424de8e1.jpg"},
+  {"name": "Lizzie Alejandro", "image_url": "/about-us/lizzie-alejandro/lizzie-alejandro_hu_79268663fb2892f5.jpg"},
+  {"name": "Lola Ojedele", "image_url": "/about-us/lola-ojedele/lola-ojedele_hu_6c08947979954659.jpg"},
+  {"name": "Louis Fisher", "image_url": "/about-us/louis-fisher/louis-fisher_hu_162bbc5887404cf0.jpg"},
+  {"name": "Lucy Bridges", "image_url": "/about-us/lucy-bridges/lucy-bridges_hu_e3de4cd796f56ed4.jpg"},
+  {"name": "Martina Pesce", "image_url": "/about-us/martina-pesce/martina-pesce_hu_24a8d90ff21756d.jpg"},
+  {"name": "Mary Yip", "image_url": "/about-us/mary-yip/mary-yip_hu_c98ea8d1c1045f6f.jpg"},
+  {"name": "Mike Kelly", "image_url": "/about-us/mike-kelly/mike-kelly_hu_7e92958db5a82486.jpg"},
+  {"name": "Milan Wiedemann", "image_url": "/about-us/milan-wiedemann/milan-wiedemann_hu_a106ec8befd1aeff.jpg"},
+  {"name": "Millie Green", "image_url": "/about-us/amelia-green/amelia-green_hu_b03de63e8fe704d0.jpg"},
+  {"name": "Nick DeVito", "image_url": "/about-us/nick-devito/nick-devito_hu_3428f9c962a97659.jpg"},
+  {"name": "Nishtha Kalra", "image_url": "/about-us/nishtha-kalra/nishtha-kalra_hu_e9e123663ae28e23.jpg"},
+  {"name": "Orla Macdonald", "image_url": "/about-us/orla-macdonald/orla-macdonald_hu_12bb6ed3e109cee.jpg"},
+  {"name": "Pete Stokes", "image_url": "/about-us/pete-stokes/pete-stokes_hu_5a7b7145ba9cb4d3.jpg"},
+  {"name": "Peter Inglesby", "image_url": "/about-us/peter-inglesby/peter-inglesby_hu_7ab1f1acc3b2ee33.jpg"},
+  {"name": "Providence Onyenekwe", "image_url": "/about-us/providence-onyenekwe/providence-onyenekwe_hu_22063fa30dc520f2.jpg"},
+  {"name": "Richard Croker", "image_url": "/about-us/richard-croker/richard-croker_hu_5054a8addda67bf7.jpg"},
+  {"name": "Richard Williams", "image_url": "/about-us/richard-williams/richard-williams_hu_d94f209fcb427962.jpg"},
+  {"name": "Rose Higgins", "image_url": "/about-us/rose-higgins/rose-higgins_hu_61a3db4f0e9a101e.jpg"},
+  {"name": "Simon Davy", "image_url": "/about-us/simon-davy/simon-davy_hu_a5bd6c4127ce00ec.jpg"},
+  {"name": "Steve Maude", "image_url": "/about-us/steve-maude/steven-maude_hu_8b93d9119fb5a014.jpg"},
+  {"name": "Thomas O'Dwyer", "image_url": "/about-us/thomas-odwyer/thomas-odwyer_hu_575c6d3bc4e17c51.jpg"},
+  {"name": "Tom Ward", "image_url": "/about-us/tom-ward/tom-ward_hu_1fa13c99e5279949.jpg"},
+  {"name": "Vicky Speed", "image_url": "/about-us/vicky-speed/vicky-speed_hu_3b0c1c34efd3c6de.jpg"},
+  {"name": "Viveck Kingsley", "image_url": "/about-us/viveck-kingsley/viveck-kingsley_hu_6f4fd0ad56c5aea0.jpg"},
+  {"name": "Will Hulme", "image_url": "/about-us/william-hulme/william-hulme_hu_fbe3d74a9fc22840.jpg"},
+  {"name": "Yamina Boukari", "image_url": "/about-us/yamina-boukari/yamina-boukari_hu_9799e73fef3c2629.jpg"}
+];
+
+let shuffled, current, wrongGuesses, correctCount, startTime, timerInterval, mode;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+function updateTimer() {
+  document.getElementById('timer').textContent = formatTime(Date.now() - startTime);
+}
+
+function getAnswer(person) {
+  return mode === 'easy' ? person.name.split(' ')[0] : person.name;
+}
+
+function showPerson() {
+  const person = shuffled[current];
+  document.getElementById('face').src = BASE + person.image_url;
+  const input = document.getElementById('guess-input');
+  input.value = '';
+  input.className = '';
+  input.placeholder = mode === 'easy' ? 'Enter first name...' : 'Enter full name...';
+  document.getElementById('feedback').textContent = '';
+  input.focus();
+}
+
+function startGame(selectedMode) {
+  mode = selectedMode;
+  shuffled = shuffle(people);
+  current = 0;
+  correctCount = 0;
+  wrongGuesses = 0;
+  startTime = Date.now();
+  document.getElementById('mode-select').style.display = 'none';
+  document.getElementById('stats').style.display = 'flex';
+  document.getElementById('total').textContent = people.length;
+  document.getElementById('score').textContent = '0';
+  document.getElementById('card').style.display = 'flex';
+  document.getElementById('done').style.display = 'none';
+  document.getElementById('progress-bar').style.width = '0%';
+  timerInterval = setInterval(updateTimer, 1000);
+  showPerson();
+}
+
+function normalize(s) {
+  return s.trim().toLowerCase().replace(/['']/g, "'").replace(/\s+/g, ' ');
+}
+
+document.getElementById('guess-input').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const input = document.getElementById('guess-input');
+  const feedback = document.getElementById('feedback');
+  const answer = normalize(getAnswer(shuffled[current]));
+  const guess = normalize(input.value);
+
+  if (guess === answer) {
+    input.className = 'correct';
+    feedback.innerHTML = '<span class="correct-text">Correct!</span>';
+    current++;
+    correctCount++;
+    document.getElementById('score').textContent = correctCount;
+    document.getElementById('progress-bar').style.width = (correctCount / people.length * 100) + '%';
+
+    if (correctCount >= people.length) {
+      clearInterval(timerInterval);
+      updateTimer();
+      document.getElementById('card').style.display = 'none';
+      document.getElementById('done').style.display = 'block';
+      document.getElementById('final-time').textContent = formatTime(Date.now() - startTime);
+      document.getElementById('wrong-count').textContent = wrongGuesses;
+    } else {
+      setTimeout(showPerson, 600);
+    }
+  } else {
+    wrongGuesses++;
+    input.className = 'wrong';
+    feedback.innerHTML = '<span class="wrong-text">Wrong! It\'s <strong>' + getAnswer(shuffled[current]) + '</strong></span>';
+    input.disabled = true;
+    // Re-insert this person at a random later position
+    const person = shuffled[current];
+    const insertAt = current + 1 + Math.floor(Math.random() * Math.max(1, shuffled.length - current - 1));
+    shuffled.splice(insertAt, 0, person);
+    current++;
+    setTimeout(() => {
+      input.disabled = false;
+      showPerson();
+    }, 2000);
+  }
+});
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => startGame(btn.dataset.mode));
+});
+
+document.getElementById('play-again').addEventListener('click', () => {
+  document.getElementById('mode-select').style.display = 'block';
+  document.getElementById('stats').style.display = 'none';
+  document.getElementById('done').style.display = 'none';
+});
+</script>
+
+</body>
+</html>
